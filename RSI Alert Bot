@@ -1,0 +1,48 @@
+//@version=4
+study(title ="Alert Bot Bear", overlay = true)
+
+// Get price of SnP
+spy_price = security("SPY", "1", close)
+
+// no alerts in pm and ah w user specification
+preMarket = input(title="Pre-market", type=input.session, defval="0400-1030")
+afterMarket = input(title="After-market", type=input.session, defval="1500-2000")
+
+// detect if current bar is within time period
+InSession(sess) => na(time(timeframe.period, sess)) == false 
+
+// check if current bar pre or after
+isAfterClose = InSession(afterMarket)
+isPreOpen = InSession(preMarket)
+isAfterHours= isAfterClose or isPreOpen
+
+// get values
+rsi = rsi(close, 10)
+ema200 = ema(close, 200)
+vwap1 = vwap(close)
+sma100 = sma(close, 100)
+sma50 = sma(close, 50)
+
+// trend bullish
+bullish = false
+rsiBull = rsi <= 30
+vwapBull = vwap1 < spy_price
+emaBull = ema200 < spy_price
+smaBull = sma100 < spy_price
+smaBull2 = sma50 > sma100
+if(rsiBull == true and vwapBull == true and emaBull == true and smaBull == true and smaBull2 == true and not isAfterHours)
+    bullish := true
+
+// trend bearish
+bearish = false
+rsiBear = rsi >= 70
+vwapBear = vwap1 > spy_price
+emaBear = ema200 > spy_price
+smaBear = sma100 > spy_price
+if(rsiBear == true and vwapBear == true and emaBear == true and smaBear == true and not isAfterHours)
+    bearish := true
+    
+
+
+// long if rsi oversold & price above vwap, ema 200, sma 100, and sma 50 is higher than 100
+alertcondition(bearish == true, title = "RSI Bearish", message = "Overbought right now {{timenow}}")
