@@ -1,0 +1,52 @@
+//@version=4
+strategy(title ="ema buy strat", overlay = true, initial_capital=500)
+
+// Get price of SnP
+haclose = security(heikinashi("SPY"), "5", close)
+haopen = security(heikinashi("SPY"), "5", open)
+
+// no trading in pm and ah w user specification
+preMarket = input(title="Pre-market", type=input.session, defval="0400-1030")
+afterMarket = input(title="After-market", type=input.session, defval="1500-2000")
+
+// detect if current bar is within time period
+InSession(sess) => na(time(timeframe.period, sess)) == false 
+
+// check if current bar pre or after
+isAfterClose = InSession(afterMarket)
+isPreOpen = InSession(preMarket)
+isAfterHours= isAfterClose or isPreOpen
+
+// get values
+rsi = rsi(haclose, 10)
+ema200 = ema(haclose, 200)
+vwap1 = vwap(haclose)
+sma100 = sma(haclose, 100)
+sma50 = sma(haclose, 50)
+
+// trend decider
+rsiBull = rsi <= 30
+vwapBull = vwap1 < haclose
+emaBull = ema200 < haclose
+smaBull = sma100 < haclose
+smaBull2 = sma50 > sma100
+
+// long if rsi oversold & price above vwap, ema 200, sma 100, and sma 50 is higher than 100
+bullish = false
+if(cross(sma100, close) and not isAfterHours and close <= close[3])
+    bullish := true
+    
+if(bullish == true)
+    strategy.entry("buy", strategy.long, 1)
+
+// take profit at rsi 40 
+// takeProfit = (rsi >= 40)    
+// strategy.close_all(when = takeProfit == true)
+strategy.close_all(when = barssince(change(strategy.opentrades)) == 3)
+
+// Determine stop loss price
+longStopPrice  = strategy.position_avg_price - 1
+
+// stop out
+if(strategy.position_size > 0)
+    strategy.exit(id="stop", stop=longStopPrice)
