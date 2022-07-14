@@ -1,0 +1,69 @@
+//@version=5
+strategy(title='RSI Keltner Strat', overlay=true, initial_capital=460)
+
+// PRICE
+price=close
+
+//// SESSION CHECK USER INPUT 
+///
+//
+
+preMarket=input.session(title='Pre-market', defval='0400-1045')
+afterMarket=input.session(title='After-market', defval='1515-2000')
+// DETECT IF CURRENT BAR WITHIN SESSION 
+InSession(sess) =>
+    na(time(timeframe.period, sess)) == false
+// CHECK IF BAR IS IN PRE OR AFTER MARKET
+isAfterClose = InSession(afterMarket)
+isPreOpen = InSession(preMarket)
+isAfterHours = isAfterClose or isPreOpen
+
+///
+////
+///// END SESSION CHECKER
+
+//// KELTNER CHANNELS (ATR, EMA 20, 2 MULT)
+[middle, upper, lower]=ta.kc(price, 20, 2)
+// RSI 14 PERIOD
+rsi = ta.rsi(price, 14)
+rsiOpen = ta.rsi(open, 14)
+//EMA 200/50 1H
+ema1hSlowRaw=request.security(syminfo.tickerid, '60', ta.ema(price, 200), lookahead=barmerge.lookahead_on)
+ema1hFastRaw=request.security(syminfo.tickerid, '60', ta.ema(price, 50), lookahead=barmerge.lookahead_on)
+ema1hFastestRaw=request.security(syminfo.tickerid, '60', ta.ema(price, 26), lookahead=barmerge.lookahead_on)
+
+//// START RSI KELTNER FULL
+///
+//
+
+// PRICE UNDER EMA
+enterDownTrendSlow=ta.crossunder(price, ema1hSlowRaw)
+enterDownTrendFast=ta.crossunder(price, ema1hFastRaw)
+enterDownTrendFastest=ta.crossunder(price, ema1hFastestRaw)
+
+// LONG IF RSI OVERSOLD, PRICE UNDER KELTNER LOWER, NOT OUT OF SESSION
+bullish=rsi<=30 and not isAfterHours and price<=lower and open <= lower
+// CREATE BOOL 
+var bool buyLong=na
+// ONLY BUYS IF PREVIOUS CANDLE WAS NOT BULLISH (to prevent buying over and over with pyramiding)
+buyLong:=bullish and not bullish[1]
+strategy.entry('BUY', strategy.long, 1, when=buyLong)
+
+// TAKE PROFIT AT 40 RSI
+strategy.close_all(when= strategy.position_avg_price + .1)
+// NO HOLDING OUTSIDE SESSION 
+strategy.close_all(isAfterHours)
+// EXIT IF PRICE CROSSES UNDER 200 EMA
+strategy.close_all(when=enterDownTrendSlow[1] and enterDownTrendSlow)
+
+strategy.close_all(when=enterDownTrendFastest[1] and enterDownTrendFastest)
+
+// PLOTS BUY SIGNALS 
+plotshape(buyLong, style=shape.arrowup, color=color.new(color.lime, 0), size=size.small, location=location.belowbar)
+
+//
+///
+//// END RSI KELTNER
+plot(ema1hFastestRaw, color=color.orange)
+
+
