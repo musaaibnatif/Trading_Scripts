@@ -1,0 +1,37 @@
+//@version=4
+strategy(title ="RSI Long Strat", overlay = true, initial_capital = 460)
+
+// no trading in pm and ah w user specification
+preMarket = input(title="Pre-market", type=input.session, defval="0400-1045")
+afterMarket = input(title="After-market", type=input.session, defval="1515-2000")
+// detect if current bar is within time period
+InSession(sess) => na(time(timeframe.period, sess)) == false 
+// check if current bar pre or after
+isAfterClose = InSession(afterMarket)
+isPreOpen = InSession(preMarket)
+isAfterHours= isAfterClose or isPreOpen
+
+// get values
+price = close
+rsi = rsi(price, 14)
+ema1hSlowRaw = security(syminfo.tickerid, "60", ema(price, 200), lookahead=barmerge.lookahead_on)
+
+// long if rsi oversold & price above 1h ema 200
+bullish = rsi < 35 and not isAfterHours
+
+// entry if bullish
+
+strategy.entry("BUY", strategy.long, 1, when = bullish)
+
+var bool buyLong = na
+buyLong:=bullish and not bullish[1]
+plotshape(buyLong, style=shape.triangleup, color=color.new(color.lime, 0), size=size.small, location=location.belowbar)
+
+// take profit at rsi 40
+strategy.close_all(when=rsi>=40)
+
+// no holding ah
+strategy.close_all(when=isAfterHours)
+// strategy.close_all(when=ema1hSlowRaw > close)
+enterdowntrend = crossunder(price, ema1hSlowRaw)
+strategy.close_all(when=enterdowntrend)
