@@ -1,0 +1,25 @@
+//@version=4
+strategy(title ="EMA SHORT", overlay = true, initial_capital = 460)
+
+// get values
+rsi = rsi(close, 14)
+ema1hSlowRaw = security(syminfo.tickerid, "60", ema(close, 200), lookahead=barmerge.lookahead_on)
+ema1hFastRaw = security(syminfo.tickerid, "60", ema(close, 50), lookahead=barmerge.lookahead_on)
+
+// long if rsi oversold & price above 1h ema 200
+bearish = crossunder(close, ema1hSlowRaw)
+bullish = crossover(ema1hSlowRaw, close)
+floatChck = 0
+if(bearish)
+    floatChck := floatChck +1
+
+bearishReal = barssince(change(floatChck)) == 3 and close < ema1hSlowRaw and rsi>40
+
+// entry if bearish
+if(bearishReal)
+    strategy.entry("sell", strategy.short, 1)
+
+// take profit at rsi 40
+strategy.close_all(rsi<=40)
+
+strategy.close_all(strategy.position_size == 1 and bullish)
